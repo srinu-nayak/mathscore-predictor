@@ -1,3 +1,4 @@
+import numpy as np
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, AdaBoostRegressor
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.model_selection import GridSearchCV, KFold
@@ -6,12 +7,17 @@ from src.mlproject.exception import CustomException
 from src.mlproject.logger import logging
 from dataclasses import dataclass
 import os
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_squared_error, root_mean_squared_error
 from xgboost import XGBRegressor
 from catboost import CatBoostRegressor
 from src.mlproject.utils import evaluate_models
 from src.mlproject.utils import save_object
+import mlflow
+from urllib.parse import urlparse
+import mlflow.sklearn
+from dotenv import load_dotenv
 
+load_dotenv()
 
 
 @dataclass
@@ -21,6 +27,12 @@ class ModelPredictorConfig:
 class ModelPredictor:
     def __init__(self):
         self.model_config= ModelPredictorConfig()
+
+    def eval_metrics(self, actual, predicted):
+        r2 = r2_score(actual, predicted)
+        mse = mean_squared_error(actual, predicted)
+        rmse = np.sqrt(mse)
+        return r2, mse, rmse
 
     def get_prediction(self, train_arr, test_arr):
         try:
@@ -90,9 +102,30 @@ class ModelPredictor:
             best_hyperparameters = best_params_report[best_model_name]
             logging.info(f"Best hyperparameters: {best_hyperparameters}")
 
-            print(best_model_score)
-            print(best_model)
-            print(best_hyperparameters)
+
+
+
+            mlflow.set_registry_uri("https://dagshub.com/srinu-nayak/mathscore-predictor.mlflow")
+            tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
+
+
+            with mlflow.start_run():
+
+                y_predicted = best_model.predict(X_test)
+                (r2, mse, rmse) = self.eval_metrics(y_test, y_predicted)
+
+                mlflow.log_param('best parameter', best_hyperparameters)
+                mlflow.log_metric('r2', r2)
+                mlflow.log_metric('mse', mse)
+                mlflow.log_metric('rmse', rmse)
+
+
+                logging.info(f"mlflow tracking started")
+
+            if tracking_url_type_store != 'file':
+                mlflow.sklearn.log_model(best_model, 'model')
+            else:
+                mlflow.sklearn.log_model(best_model, 'model')
 
 
             save_object(

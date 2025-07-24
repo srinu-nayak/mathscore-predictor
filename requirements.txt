@@ -8,5 +8,6 @@ seaborn
 matplotlib
 xgboost
 catboost
+mlflow
 
 -e .
