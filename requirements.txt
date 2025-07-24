@@ -4,6 +4,9 @@ scikit-learn
 pymysql
 mysql-connector-python
 python-dotenv
-
+seaborn
+matplotlib
+xgboost
+catboost
 
 -e .
